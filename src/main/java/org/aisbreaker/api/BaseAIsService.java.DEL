@@ -1,0 +1,273 @@
+import org.aisbreaker.api.AIsAPIFactory;
+import org.aisbreaker.api.AIsError;
+import org.aisbreaker.api.AIsService;
+import org.aisbreaker.api.AIsServiceProps;
+import org.aisbreaker.api.model.Auth;
+import org.aisbreaker.api.model.Request;
+import org.aisbreaker.api.model.ResponseFinal;
+import org.aisbreaker.api.model.Service;
+import org.aisbreaker.api.http.HttpStatusCodes;
+
+public abstract class BaseAIsService<PROPS_T extends AIsServiceProps, DEFAULTS_T extends AIsServiceDefaults> implements AIsService {
+  // provided properties
+  protected PROPS_T serviceProps;
+  protected DEFAULTS_T serviceDefaults;
+  protected Auth auth;
+
+  // derived properties
+  protected String task;
+  protected String vendor;
+  protected String engineOpt;
+  protected String engine;
+  protected String urlOpt;
+  protected String url;
+
+  public BaseAIsService(PROPS_T serviceProps, DEFAULTS_T serviceDefaults, Auth auth) {
+    this.serviceProps = serviceProps;
+    this.serviceDefaults = serviceDefaults;
+    this.auth = auth;
+
+    // derive settings from the parameters
+    TaskVendorEngineUtils.TaskVendorEngine taskVendorEngine = TaskVendorEngineUtils.getTaskVendorEngineFromServiceId(serviceProps.getServiceId(), serviceDefaults);
+
+    if (taskVendorEngine.getTask() == null) {
+      throw new Error("task is missing for serviceId: " + serviceProps.getServiceId());
+    }
+    this.task = taskVendorEngine.getTask();
+    this.vendor = taskVendorEngine.getVendor() != null ? taskVendorEngine.getVendor() : this.getClass().getSimpleName();
+    this.engineOpt = taskVendorEngine.getEngine();
+    this.engine = this.engineOpt != null ? this.engineOpt : "<unknown-engine>";
+
+    this.urlOpt = this.getServiceUrl(serviceProps.getUrl(), this.engineOpt, serviceDefaults);
+    this.url = this.urlOpt != null ? this.urlOpt : "<unknown-url>";
+  }
+
+  /**
+   * Let the service do its work.
+   */
+  public ResponseFinal process(Request request) throws AIsError {
+    // preparation for logging and exceptions
+    String context = this.getContext(request) + ".process()";
+
+    try {
+      logger.debug(context + " START");
+
+      // action
+      // ResponseFinalOrAIsError responseFinalOrAIsError = processFunction();
+      // check that all required fields are present
+      this.checkRequest(request, context);
+
+      // do the work
+      ResponseFinal responseFinalOrAIsError = this.processUnprotected(request, context);
+
+      // process the final result
+      if (responseFinalOrAIsError == null) {
+        throw new AIsError(context + " - No final response", HttpStatusCodes.ERROR_444_No_Response);
+      } else if (responseFinalOrAIsError instanceof AIsError) {
+        // re-throw the error unchanged
+        throw (AIsError) responseFinalOrAIsError;
+      } else {
+        // return the response
+        logger.silly(context + " END with successful responseFinal: " + responseFinalOrAIsError);
+        return responseFinalOrAIsError;
+      }
+
+    } catch (Exception error) {
+      // error handling
+    }
+  }
+
+
+  public abstract class BaseAIsService<PROPS_T extends AIsServiceProps, DEFAULTS_T extends AIsServiceDefaults> implements AIsService {
+    // provided properties
+    protected PROPS_T serviceProps;
+    protected DEFAULTS_T serviceDefaults;
+    protected Auth auth;
+
+    // derived properties
+    protected String task;
+    protected String vendor;
+    protected String engineOpt;
+    protected String engine;
+    protected String urlOpt;
+    protected String url;
+
+    public BaseAIsService(PROPS_T serviceProps, DEFAULTS_T serviceDefaults, Auth auth) {
+      this.serviceProps = serviceProps;
+      this.serviceDefaults = serviceDefaults;
+      this.auth = auth;
+
+      // derive settings from the parameters
+      TaskVendorEngineUtils.TaskVendorEngine taskVendorEngine = TaskVendorEngineUtils.getTaskVendorEngineFromServiceId(serviceProps.getServiceId(), serviceDefaults);
+
+      if (taskVendorEngine.getTask() == null) {
+        throw new Error("task is missing for serviceId: " + serviceProps.getServiceId());
+      }
+      this.task = taskVendorEngine.getTask();
+      this.vendor = taskVendorEngine.getVendor() != null ? taskVendorEngine.getVendor() : this.getClass().getSimpleName();
+      this.engineOpt = taskVendorEngine.getEngine();
+      this.engine = this.engineOpt != null ? this.engineOpt : "<unknown-engine>";
+
+      this.urlOpt = this.getServiceUrl(serviceProps.getUrl(), this.engineOpt, serviceDefaults);
+      this.url = this.urlOpt != null ? this.urlOpt : "<unknown-url>";
+    }
+
+    /**
+     * Let the service do its work.
+     */
+    public ResponseFinal process(Request request) throws AIsError {
+      // preparation for logging and exceptions
+      String context = this.getContext(request) + ".process()";
+
+      try {
+        logger.debug(context + " START");
+
+        // action
+        // ResponseFinalOrAIsError responseFinalOrAIsError = processFunction();
+        // check that all required fields are present
+        this.checkRequest(request, context);
+
+        // do the work
+        ResponseFinal responseFinalOrAIsError = this.processUnprotected(request, context);
+
+        // process the final result
+        if (responseFinalOrAIsError == null) {
+          throw new AIsError(context + " - No final response", HttpStatusCodes.ERROR_444_No_Response);
+        } else if (responseFinalOrAIsError instanceof AIsError) {
+          // re-throw the error unchanged
+          throw (AIsError) responseFinalOrAIsError;
+        } else {
+          // return the response
+          logger.silly(context + " END with successful responseFinal: " + responseFinalOrAIsError);
+          return responseFinalOrAIsError;
+        }
+
+      } catch (Exception error) {
+        // error handling
+      }
+    }
+
+    /**
+     * Do the work of process()
+     * without the need to care about all error handling.
+     * 
+     * @param request  the request to process
+     * @param context  optional context information/description/message prefix
+     *                 for logging and for error messages
+     * @returns The final result.
+     *          In the case of an error it returns an AIsError OR throws an AIError or general Error.
+     */
+    protected abstract ResponseFinal processUnprotected(Request request, String context);
+
+    //
+    // functions for service implementation
+    //
+
+    /**
+     * @returns ResponseFinal.usage.service
+     */
+    protected Service getService(String actualEngine) {
+      Service service = new Service();
+      service.setServiceId(this.serviceProps.getServiceId());
+      service.setEngine(actualEngine != null ? actualEngine : this.engineOpt);
+      service.setUrl(this.urlOpt);
+      return service;
+    }
+
+    //
+    // functions for logging and error handling
+    //
+
+    /**
+     * Optionally, provide additional context information/description
+     * for logging and error messages.
+     */
+    protected String getContext(Request request) {
+      String className = this.getClass().getSimpleName();
+      String serviceIdOrSimilarContext = this.getContextService(request);
+      if (serviceIdOrSimilarContext != null) {
+        return className + "(" + serviceIdOrSimilarContext + ")";
+      } else {
+        return className;
+      }
+    }
+
+    /**
+     * Optionally, provide additional context information/description
+     * for logging and error messages.
+     */
+    protected String getContextService(Request request) {
+      return this.serviceProps != null ? this.serviceProps.getServiceId() : null;
+    }
+
+    //
+    // helper methods
+    //
+
+    /**
+     * Derive the service URL.
+     * 
+     * Implemented as method here to allow overriding.
+     * 
+     * @param url       The (base) URL specified in AIsServiceProps.
+     * @param engine    The engine derived form serviceId
+     * @param serviceDefaults 
+     * @returns The URL to access the actual AI service.
+     */
+    protected String getServiceUrl(String url, String engine, AIsServiceDefaults serviceDefaults) {
+      return ServiceUrlUtils.getServiceUrl(url, engine, serviceDefaults);
+    }
+    
+    /**
+     * Check that all required fields are present
+     * 
+     * @param request
+     * @param context  optional context information/description/message prefix
+     *                 for logging and for error messages
+     */
+    protected void checkRequest(Request request, String context) {
+      // check that all required fields are present
+      if (request == null) {
+        throw new AIsError(context + ".process() - request is missing", HttpStatusCodes.ERROR_400_Bad_Request);
+      }
+      if (request.getInputs() == null) {
+        throw new AIsError(context + ".process() - request.inputs is missing", HttpStatusCodes.ERROR_400_Bad_Request);
+      }
+      if (request.getInputs().isEmpty()) {
+        throw new AIsError(context + ".process() - request.inputs[0] is missing", HttpStatusCodes.ERROR_400_Bad_Request);
+      }
+    }
+
+    protected DefaultConversationState getConversationState(Request request) {
+      return DefaultConversationState.fromBase64(request.getConversationState());
+    }
+
+    //
+    // helper functions
+    //
+
+    protected String addPrefixIfNotAlreadyPresent(String expectedPrefixSubstring, String prefixToAdd, String message) {
+      // pre-check
+      if (message == null) {
+        return prefixToAdd + "<undefined>";
+      }
+      // action
+      if (message.contains(expectedPrefixSubstring)) {
+        // nothing to do
+        return message;
+      } else {
+        // add prefix
+        return prefixToAdd + message;
+      }
+    }
+
+    /** @returns a root cause message (with prefix ': '), or an empty string*/
+    protected String getOptionalErrorCauseMessageWithColonPrefix(Exception error) {
+      if (error != null && error.getCause() != null) {
+        return ": " + error.getCause().getMessage();
+      } else {
+        return "";
+      }
+    }
+
+  }
