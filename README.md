@@ -9,6 +9,12 @@ Build and test the project:
 ./gradlew clean build test --info
 ```
 
+Publish the project:
+```bash
+./gradlew jar publish --info
+```
+
+
 
 ## Change Default Java Version on Ubuntu
 ```
