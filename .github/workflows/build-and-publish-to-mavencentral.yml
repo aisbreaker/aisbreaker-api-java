@@ -11,6 +11,10 @@ name: Build and Publish Package to the Maven Central Repository
 on:
   release:
     types: [created]
+  push:
+    branches:
+      - main
+
 jobs:
   publish:
     runs-on: ubuntu-latest
