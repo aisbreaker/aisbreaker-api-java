@@ -25,4 +25,5 @@ if [ -z "$ORG_GRADLE_PROJECT_mavenCentralPassword" ]; then
 fi
 
 # publish to Maven Central
-./gradlew clean build publishAndReleaseToMavenCentral --no-configuration-cache --info
+#./gradlew clean build publishAndReleaseToMavenCentral --no-configuration-cache --info
+./gradlew publishAndReleaseToMavenCentral --no-configuration-cache --info
