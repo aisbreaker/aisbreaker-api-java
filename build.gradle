@@ -1,16 +1,15 @@
 plugins {
     id 'java-library'
-    id 'maven-publish'
     id 'signing'
+    // plugin to publish to maven central: https://vanniktech.github.io/gradle-maven-publish-plugin/central/ :
+    id "com.vanniktech.maven.publish" version "0.28.0"
 }
 
 group 'org.aisbreaker'
 version '0.1.0'
 
 java {
-    //sourceCompatibility = JavaVersion.VERSION_1_8
     sourceCompatibility = JavaVersion.VERSION_11
-    //targetCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_11
 }
 
@@ -58,10 +57,18 @@ test {
 //    }
 //}
 
+javadoc {
+    options {
+        author true
+        version true
+    }
+}
+/*
 task javadocJar(type: Jar) {
     archiveClassifier = 'javadoc'
     from javadoc
 }
+*/
 
 task sourcesJar(type: Jar) {
     archiveClassifier = 'sources'
@@ -69,52 +76,57 @@ task sourcesJar(type: Jar) {
 }
 
 artifacts {
-    archives javadocJar, sourcesJar
+    archives jar, /*javadocJar,*/ sourcesJar
 }
 
-signing {
-    sign publishing.publications
-}
+mavenPublishing {
+    signAllPublications()
 
-def githubRepo = "github.com/aisbreaker/aisbreaker-api-java"
-def releaseUrl = "https://s01.oss.sonatype.org/service/local/"
-def snapshotUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+    // publishing to https://central.sonatype.com/
+    // automatic release could be buggy: https://vanniktech.github.io/gradle-maven-publish-plugin/central/#automatic-release
+    publishToMavenCentral("CENTRAL_PORTAL", true)
+
+    // meta data for the library
+    def githubRepo = "github.com/aisbreaker/aisbreaker-api-java"
+    pom {
+        name = 'AIsBreaker.org API Library'
+        description = 'JVM client to use the AIsBreaker in your Java, Kotlin or any other JVM application.'
+        url = 'https://aisbreaker.org/'
+        inceptionYear = "2023"
+        //properties = [
+        //    myProp: "value",
+        //    "prop.with.dots": "anotherValue"
+        //]
+        licenses {
+            license {
+                name = 'MIT License'
+                url = "https://${githubRepo}/blob/main/LICENSE"
+            }
+        }
+        developers {
+            developer {
+                id = 'chris'
+                name = 'Chris Hapke'
+                email = 'chris.public@aisbreaker.org'
+            }
+        }
+        scm {
+            url = 'http://aisbreaker.org/'
+            connection = "scm:git:git://github.com/${githubRepo}.git"
+            developerConnection = "scm:git:git://github.com/${githubRepo}.git"
+        }
+        issueManagement {
+            url.set("https://github.com/${githubRepo}/issues")
+        }
+    }
+    // the coordinates (group:artifactId:version) used to consume the library:
+    coordinates("${group}", "${name}", "${version}")
+}
 
 publishing {
     publications {
         mavenJava(MavenPublication) {
             from components.java
-
-            pom {
-                name = 'AIsBreaker.org API Library'
-                description = 'JVM client to use the AIsBreaker in your Java, Kotlin or any other JVM application.'
-                url = 'https://aisbreaker.org/'
-                properties = [
-                    myProp: "value",
-                    "prop.with.dots": "anotherValue"
-                ]
-                licenses {
-                    license {
-                        name = 'MIT License'
-                        url = "https://${githubRepo}/blob/main/LICENSE"
-                    }
-                }
-                developers {
-                    developer {
-                        id = 'hapkecom'
-                        name = 'Christian Hapke'
-                        email = '1193103+hapkecom@users.noreply.github.com'
-                    }
-                }
-                scm {
-                    url = 'http://aisbreaker.org/'
-                    connection = "scm:git:git://github.com/${githubRepo}.git"
-                    developerConnection = "scm:git:git://github.com/${githubRepo}.git"
-                }
-                issueManagement {
-                    url.set("https://github.com/${githubRepo}/issues")
-                }
-            }
         }
     }
     
@@ -123,28 +135,21 @@ publishing {
           name = "OSSRH"
           url = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
           credentials {
-            username = System.getenv("MAVEN_USERNAME")
-            password = System.getenv("MAVEN_PASSWORD")
+            username = System.getenv("mavenCentralUsername")
+            password = System.getenv("mavenCentralPassword")
           }
         }
-
-        /*
-        sonatype {
-          nexusUrl.set(uri(Meta.release))
-          snapshotRepositoryUrl.set(uri(Meta.snapshot))
-          val ossrhUsername = providers
-            .environmentVariable("MAVEN_USERNAME")
-            .forUseAtConfigurationTime()
-          val ossrhPassword = providers
-            .environmentVariable("MAVEN_PASSWORD")
-            .forUseAtConfigurationTime()
-          if (ossrhUsername.isPresent && ossrhPassword.isPresent) {
-            username.set(ossrhUsername.get())
-            password.set(ossrhPassword.get())
-          }
-        }
-        */
-
     }
 }
 
+signing {
+    def signingKey = findProperty("signingInMemoryKey")
+    def signingPassword = findProperty("signingInMemoryKeyPassword")
+    useInMemoryPgpKeys(signingKey, signingPassword)
+
+    sign publishing.publications.mavenJava
+}
+
+tasks.named("signMavenJavaPublication").configure {
+    dependsOn(javadoc)
+}
