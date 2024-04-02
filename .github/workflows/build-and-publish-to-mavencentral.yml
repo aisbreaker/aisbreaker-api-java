@@ -7,7 +7,7 @@
 # To get a newer version, you will need to update the SHA.
 # You can also reference a tag or branch, but the action may change without warning.
 
-name: Publish package to the Maven Central Repository
+name: Build and Publish Package to the Maven Central Repository
 on:
   release:
     types: [created]
@@ -29,8 +29,10 @@ jobs:
         run: ./gradlew clean build test --info
 
       - name: Publish package
-        run: ./gradlew publish
+        run: ./gradlew-publishAndReleaseToMavenCentral.sh
         env:
-          MAVEN_USERNAME: ${{ secrets.OSSRH_MAVEN_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.OSSRH_MAVEN_PASSWORD }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername:        ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralUsername }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword:        ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralPassword }}
 
+          ORG_GRADLE_PROJECT_signingInMemoryKey:          ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKey }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword:  ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyPassword }}
