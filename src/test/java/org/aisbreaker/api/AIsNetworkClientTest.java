@@ -15,45 +15,108 @@ import org.mockito.Mockito;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 public class AIsNetworkClientTest {
     Logger logger = Logger.getLogger(AIsNetworkClientTest.class.getName());
 
 
-    //@Test
+    @Test
     public void testProcessBlockingIntegration() throws IOException, Exception {
-        System.out.println("testProcessBlockingIntegration ****************************************** S.o.p");
         logger.info("testProcessBlockingIntegration ****************************************** l.i");
 
-        // Create a real request object
+        // service configuration: select the service/serviceId you want to use
         AIsServiceProps serviceProps = new AIsServiceProps()
-            .setServiceId("chat:dummy");
-            //.serviceProps.setServiceId("chat:openai.com");
+            .setServiceId("chat:dummy")
+        
+            //.setServiceId("chat:openai.com")
+        
+            //.setServiceId("chat:gemini.vertexai.google.com",
+            //.setProject("<YOUR-GOOGLE-CLOUD-PROJECT>")          // optional for gemini.vertexai.google.com
+            //.setLocation("<YOUR-GOOGLE-CLOUD-LOCATION>")        // optional for gemini.vertexai.google.com, e.g. "us-central1"
+        
+            //.setServiceId("chat:huggingface.co/<HF-ACCOUNT>/<HF-MODEL>")
+            // e.g.:
+            //.setServiceId("chat:huggingface.co/microsoft/DialoGPT-large")
+        
+            //.setServiceId("aisbreaker:mirror")
+            //.setForward2ServiceProps(new AIsServiceProps()
+            //    .setServiceId("chat:echo")
+            //)
+        ;
+        
+        // service initialization
+        String aisbreakerServerURL =  null;//"https://api.demo.aisbreaker.org/";
+        Auth auth = new Auth()
+            // optionally, set your OpenAI API key:
+            //.setSecret("sk-...")
+        
+            // optionally, set your Google Cloud (Vertext AI) API key:
+            //.setSecret("googlecloud-account-json-base64_..")
+        
+            // optionally, set your Huggingface API key:
+            //.setSecret("hf_...")
+        
+            // optionally, set your AIsBreaker API key:
+            //.setSecret("aisbreaker_...")
+        ;
+        AIsService aisService =
+            AIsBreaker.getAIsService(aisbreakerServerURL, serviceProps, auth); 
 
-        Request request = new Request()
-            //.setConversationState("test");
-            .addInput(new Input()
-                .setText(new InputText()
-                    .setRole("user")
-                    .setContent("What is JavaScript?")
-                )
-            );
+        
+        // 1st question/prompt
+        String question1 = "What is NodeJS?";
+        logger.info("***** Question1 *****\n"+question1+"\n");
 
-
-        StreamProgressCallback streamProgressCallback = new StreamProgressCallback() {
+        // be able to receive callsbacks
+        AtomicInteger callbackCounter = new AtomicInteger(0);
+        StreamProgressCallback streamProgressCallback1 = new StreamProgressCallback() {
             @Override
             public void onProgress(ResponseEvent responseEvent) {
                 try {
+                    callbackCounter.incrementAndGet();
                     logger.info("testProcessBlockingIntegration.onProgress: " + JsonConverter.obj2Json(responseEvent));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
         };
-        request.setStreamProgressCallback(streamProgressCallback);
-        logger.info("Request: " + request);
 
+        // 1st request
+        Request request1 = new Request()
+            .addInput(new Input()
+                .setText(new InputText()
+                    .setRole("user")
+                    .setContent(question1)
+                )
+            )
+            .setStreamProgressCallback(streamProgressCallback1);
+
+        // action and 1st answer
+        ResponseFinal response1 = aisService.process(request1);
+        logger.info("***** Answer1 *****\n"+response1.getOutputs().get(0).getText().getContent()+"\n");
+            
+        // check results
+        Assertions.assertNotNull(response1, "Response is null");
+        Assertions.assertNotNull(response1.getOutputs(), "No outputs found in answer");
+        Assertions.assertTrue(response1.getOutputs().size() > 0, "No outputs found in answer");
+        Assertions.assertNotNull(response1.getOutputs().get(0).getText(), "No text found in answer");
+
+        // assert that the content contains a substring
+        String textContent1 = response1.getOutputs().get(0).getText().getContent();
+        Assertions.assertNotNull(textContent1, "No content found in answer");
+        Assertions.assertTrue(textContent1.contains("DummyAssistantService"), "No 'DummyAssistantService' found in answer");
+        Assertions.assertTrue(textContent1.contains("NodeJS"), "No 'NodeJS' found in answer");
+
+        // assert that the callback was called
+        Assertions.assertTrue(callbackCounter.get() > 0, "No callback was called");
+        // as of 2024-04-02: 1st callback is called 22 times, but this can change over time
+        //Assertions.assertEquals(callbackCounter.get(), 22, "Callback was not called 22 times");
+        Assertions.assertTrue(callbackCounter.get() >= 10, "Callback was not called at least 10 times");
+        Assertions.assertTrue(callbackCounter.get() <= 200, "Callback was called more than 200 times");
+
+        /*
         // action 
         AIsService aisService =
             AIsBreaker.getAIsService(null, serviceProps, null); 
@@ -66,6 +129,7 @@ public class AIsNetworkClientTest {
             e.printStackTrace();
         }
         logger.info("Response: " + JsonConverter.obj2Json(responseFinal.get()));
+        */
     }
 
     /*

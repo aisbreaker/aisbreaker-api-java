@@ -5,15 +5,9 @@ import org.aisbreaker.api.model.Input;
 import org.aisbreaker.api.model.InputText;
 import org.aisbreaker.api.model.Request;
 import org.aisbreaker.api.model.ResponseFinal;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.io.IOException;
-import java.net.URI;
 
 public class AIsBreakerTest {
 
@@ -99,7 +93,7 @@ public class AIsBreakerTest {
         }
     }
     
-    @Test
+    //@Test
     public void testProcessBlockingNonStereaming() throws IOException, Exception {
         System.out.println("testProcessBlockingNonStereaming ****************************************** S.o.p");
 
