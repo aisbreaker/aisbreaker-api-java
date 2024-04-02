@@ -32,6 +32,15 @@ jobs:
       - name: Build package
         run: ./gradlew clean build test --info
 
+      - name: Publish JUnit test result
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            build/test-results/**/*.xml
+            build/test-results/**/*.trx
+            build/test-results/**/*.json
+
       - name: Publish package
         run: ./gradlew-publishAndReleaseToMavenCentral.sh
         env:
